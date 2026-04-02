@@ -6,12 +6,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({
-  origin: [
-    'https://likeweb123.netlify.app'
-  ]
-}));
-
+app.use(cors());
 app.use(express.json());
 
 const dbPath = path.join(__dirname, 'db.json');
@@ -43,6 +38,10 @@ function ensureProductExists(db, productId) {
     };
   }
 }
+
+app.get('/', (req, res) => {
+  res.send('Backend is running');
+});
 
 app.get('/api/likes/state', (req, res) => {
   const { productId, userId } = req.query;
