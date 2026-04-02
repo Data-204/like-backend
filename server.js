@@ -6,7 +6,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
 
 const dbPath = path.join(__dirname, 'db.json');
@@ -22,8 +27,15 @@ function readDB() {
     fs.writeFileSync(dbPath, JSON.stringify(createDefaultDB(), null, 2));
   }
 
-  const data = fs.readFileSync(dbPath, 'utf-8');
-  return JSON.parse(data);
+  const raw = fs.readFileSync(dbPath, 'utf-8');
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const fresh = createDefaultDB();
+    fs.writeFileSync(dbPath, JSON.stringify(fresh, null, 2));
+    return fresh;
+  }
 }
 
 function writeDB(data) {
@@ -43,6 +55,10 @@ app.get('/', (req, res) => {
   res.send('Backend is running');
 });
 
+app.get('/health', (req, res) => {
+  res.json({ ok: true });
+});
+
 app.get('/api/likes/state', (req, res) => {
   const { productId, userId } = req.query;
 
@@ -58,9 +74,7 @@ app.get('/api/likes/state', (req, res) => {
   const product = db.products[productId];
   const likedByCurrentUser = product.likedUsers.includes(userId);
 
-  writeDB(db);
-
-  res.json({
+  return res.json({
     count: product.count,
     likedByCurrentUser
   });
@@ -79,26 +93,30 @@ app.post('/api/likes/toggle', (req, res) => {
   ensureProductExists(db, productId);
 
   const product = db.products[productId];
-  const userIndex = product.likedUsers.indexOf(userId);
+  const existingIndex = product.likedUsers.indexOf(userId);
 
   let likedByCurrentUser = false;
 
-  if (userIndex === -1) {
+  if (existingIndex === -1) {
     product.likedUsers.push(userId);
     product.count += 1;
     likedByCurrentUser = true;
   } else {
-    product.likedUsers.splice(userIndex, 1);
+    product.likedUsers.splice(existingIndex, 1);
     product.count = Math.max(0, product.count - 1);
     likedByCurrentUser = false;
   }
 
   writeDB(db);
 
-  res.json({
+  return res.json({
     count: product.count,
     likedByCurrentUser
   });
+});
+
+app.use((req, res) => {
+  res.status(404).send('Not Found');
 });
 
 app.listen(PORT, () => {
