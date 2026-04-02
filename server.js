@@ -31,7 +31,7 @@ function readDB() {
 
   try {
     return JSON.parse(raw);
-  } catch {
+  } catch (e) {
     const fresh = createDefaultDB();
     fs.writeFileSync(dbPath, JSON.stringify(fresh, null, 2));
     return fresh;
@@ -74,7 +74,7 @@ app.get('/api/likes/state', (req, res) => {
   const product = db.products[productId];
   const likedByCurrentUser = product.likedUsers.includes(userId);
 
-  return res.json({
+  res.json({
     count: product.count,
     likedByCurrentUser
   });
@@ -109,7 +109,7 @@ app.post('/api/likes/toggle', (req, res) => {
 
   writeDB(db);
 
-  return res.json({
+  res.json({
     count: product.count,
     likedByCurrentUser
   });
@@ -117,8 +117,4 @@ app.post('/api/likes/toggle', (req, res) => {
 
 app.use((req, res) => {
   res.status(404).send('Not Found');
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
 });
