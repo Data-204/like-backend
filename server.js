@@ -22,8 +22,8 @@ function readDB() {
     fs.writeFileSync(dbPath, JSON.stringify(createDefaultDB(), null, 2));
   }
 
-  const data = fs.readFileSync(dbPath, 'utf-8');
-  return JSON.parse(data);
+  const raw = fs.readFileSync(dbPath, 'utf-8');
+  return JSON.parse(raw);
 }
 
 function writeDB(data) {
@@ -32,7 +32,13 @@ function writeDB(data) {
 
 function ensureProductExists(db, productId) {
   if (!db.products[productId]) {
-    db.products[productId] = { likes: 0 };
+    db.products[productId] = {
+      likedUsers: []
+    };
+  }
+
+  if (!Array.isArray(db.products[productId].likedUsers)) {
+    db.products[productId].likedUsers = [];
   }
 }
 
@@ -40,25 +46,61 @@ app.get('/', (req, res) => {
   res.send('Like backend is running');
 });
 
-app.get('/likes/:productId', (req, res) => {
-  const { productId } = req.params;
-  const db = readDB();
+app.get('/api/likes/state', (req, res) => {
+  const { productId, userId } = req.query;
 
+  if (!productId || !userId) {
+    return res.status(400).json({
+      error: 'productId and userId are required'
+    });
+  }
+
+  const db = readDB();
   ensureProductExists(db, productId);
+
+  const likedUsers = db.products[productId].likedUsers;
+  const likedByCurrentUser = likedUsers.includes(userId);
+  const count = likedUsers.length;
+
   writeDB(db);
 
-  res.json({ likes: db.products[productId].likes });
+  res.json({
+    count,
+    likedByCurrentUser
+  });
 });
 
-app.post('/likes/:productId', (req, res) => {
-  const { productId } = req.params;
-  const db = readDB();
+app.post('/api/likes/toggle', (req, res) => {
+  const { productId, userId } = req.body;
 
+  if (!productId || !userId) {
+    return res.status(400).json({
+      error: 'productId and userId are required'
+    });
+  }
+
+  const db = readDB();
   ensureProductExists(db, productId);
-  db.products[productId].likes += 1;
+
+  const likedUsers = db.products[productId].likedUsers;
+  const existingIndex = likedUsers.indexOf(userId);
+
+  let likedByCurrentUser = false;
+
+  if (existingIndex === -1) {
+    likedUsers.push(userId);
+    likedByCurrentUser = true;
+  } else {
+    likedUsers.splice(existingIndex, 1);
+    likedByCurrentUser = false;
+  }
+
   writeDB(db);
 
-  res.json({ likes: db.products[productId].likes });
+  res.json({
+    count: likedUsers.length,
+    likedByCurrentUser
+  });
 });
 
 app.listen(PORT, () => {
